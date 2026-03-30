@@ -1,411 +1,210 @@
-# ⚙️ Neon — Distributed Scientific Compute Platform (DSCP)
+# ⚙️ Neon — Distributed Scientific Compute Platform
 
 <p align="center">
   <img src="public/readme_icon.png" alt="Neon project icon" width="180" />
 </p>
 
-Neon is a distributed computing platform for scientific simulations and data processing.  
-Think of it as a **mini-Slurm + mini-Kubernetes + job queue + simulation engine**, built in **Go**.
+Neon is a distributed compute platform for scientific simulations and data-intensive batch processing.
+It is designed as a reliable control plane and worker runtime model that can schedule, execute, monitor, and recover computational workloads across a cluster.
 
-It is designed to schedule, execute, monitor, and recover computational workloads across a cluster of worker nodes, with strong focus on reliability, observability, and performance.
+In practical terms, Neon combines core ideas from job schedulers, orchestration systems, and simulation backends into one focused platform for scientific and technical computing.
 
 ---
 
 ## Table of Contents
 
-- [Why Neon?](#why-neon)
+- [Project Overview](#project-overview)
 - [Core Capabilities](#core-capabilities)
-- [Architecture](#architecture)
-  - [1) Master Node (Control Plane)](#1-master-node-control-plane)
-  - [2) Worker Nodes](#2-worker-nodes)
-  - [3) Job System](#3-job-system)
-- [Networking Layer](#networking-layer)
-- [Monitoring and Dashboard](#monitoring-and-dashboard)
-- [Fault Tolerance and Reliability](#fault-tolerance-and-reliability)
+- [System Architecture](#system-architecture)
+  - [Control Plane](#control-plane)
+  - [Worker Plane](#worker-plane)
+  - [Job Model](#job-model)
+- [Execution Lifecycle](#execution-lifecycle)
+- [Reliability and Fault Tolerance](#reliability-and-fault-tolerance)
 - [Security Model](#security-model)
-- [Execution and Isolation](#execution-and-isolation)
-- [Scalability Strategy](#scalability-strategy)
-- [Suggested Technology Stack](#suggested-technology-stack)
-- [Example Scientific Workloads](#example-scientific-workloads)
-- [End-to-End Workflow](#end-to-end-workflow)
-- [Project Structure (Planned)](#project-structure-planned)
-- [Configuration (Planned)](#configuration-planned)
-- [API Surfaces (Planned)](#api-surfaces-planned)
-- [Quick Start (Current Repository State)](#quick-start-current-repository-state)
-- [Development Roadmap](#development-roadmap)
-- [Testing and Quality Strategy](#testing-and-quality-strategy)
-- [CV / Career Value](#cv--career-value)
+- [Observability](#observability)
+- [Scalability](#scalability)
+- [Technology Profile](#technology-profile)
+- [Current Repository Status](#current-repository-status)
 - [Contributing](#contributing)
 - [License](#license)
 
 ---
 
-## Why Neon?
+## Project Overview
 
-Scientific and technical workloads often require:
+Scientific computing environments require more than raw processing power.
+They also need predictable job execution, robust failure handling, transparent system state, and resource-aware scheduling.
 
-- high throughput job scheduling,
-- predictable execution and retry behavior,
-- resource-aware placement (CPU/RAM/GPU),
-- resilient infrastructure that survives node failures,
-- real-time observability of jobs and cluster health.
+Neon addresses these needs with a cluster-oriented execution platform where:
 
-Neon targets exactly that space: **distributed, fault-tolerant compute orchestration** for simulations and batch data pipelines.
+- clients submit computational jobs,
+- a central control plane validates and schedules workloads,
+- worker nodes execute tasks with defined limits,
+- telemetry and status are exposed in real time,
+- failed tasks are detected and recovered through policy-driven mechanisms.
+
+The goal is to provide an engineering-grade foundation for simulations and compute pipelines that must be both performant and operationally trustworthy.
 
 ---
 
 ## Core Capabilities
 
-Neon is intended to support:
+Neon is designed to support:
 
-- **Job definition** for simulation, processing, and batch workloads
-- **Cluster submission** via API
-- **Automated load distribution** across worker nodes
-- **Resource monitoring** (CPU, RAM, optional GPU)
-- **Result aggregation** and streaming
-- **Fault tolerance** with retries and health-aware scheduling
-- **Live operational visibility** through metrics, logs, and UI dashboard
+- distributed job submission and scheduling,
+- resource-aware worker placement (CPU, memory, optional GPU),
+- deterministic execution lifecycle tracking,
+- log and progress streaming,
+- retry and rescheduling policies,
+- centralized visibility into cluster and job health.
 
----
-
-## Architecture
-
-### 1) Master Node (Control Plane)
-
-The Master Node acts as the orchestration brain:
-
-- Scheduler
-- Worker registry
-- Heartbeat management
-- Load balancing
-- Central job queue
-- REST + gRPC APIs
-- Authentication and authorization (JWT and/or mTLS)
-
-Primary responsibilities:
-
-1. Accept jobs from clients
-2. Validate and enqueue workloads
-3. Select suitable workers based on resource and health state
-4. Track execution lifecycle
-5. Aggregate status, logs, and final outputs
+These capabilities make Neon suitable for both exploratory research workloads and repeatable production-like batch execution.
 
 ---
 
-### 2) Worker Nodes
+## System Architecture
 
-Worker Nodes execute jobs and report state:
+### Control Plane
 
-- Register with the master
-- Report resource usage and availability
-- Run tasks in isolated sandboxes
-- Enforce timeouts and cancellation
-- Apply retry logic where applicable
-- Stream logs and partial/final results
+The control plane is the orchestration core of Neon.
+Its responsibilities include:
 
-Worker design goals:
+- job intake and validation,
+- queue management,
+- scheduler decisions,
+- worker registration and liveness tracking,
+- lifecycle state management,
+- API surfaces for clients and operators.
 
-- deterministic execution lifecycle,
-- strict resource limits,
-- graceful failure handling,
-- reconnect support after network interruptions.
+It maintains global cluster context and ensures work is routed only to healthy, eligible workers.
 
----
+### Worker Plane
 
-### 3) Job System
+Workers are execution nodes that receive assignments from the control plane.
+Each worker is responsible for:
 
-Supported job categories:
+- reporting health and resource availability,
+- executing jobs in isolated runtime boundaries,
+- enforcing task constraints (timeouts, cancellation, quotas),
+- publishing logs, progress, and completion artifacts.
 
-- **Batch Job** — single workload unit
-- **Parallel Job (Map-Reduce style)** — fan-out/fan-in pipelines
-- **Streaming Job** — continuous or chunked data processing
+Workers are treated as replaceable compute units, enabling resilient operation even under partial cluster failure.
 
-Scientific examples:
+### Job Model
 
-- cellular automata simulation,
-- differential equation solver,
-- Monte Carlo simulation,
-- measurement data analysis pipelines.
+Neon supports general compute patterns that commonly appear in scientific and data workflows:
 
----
+- single-unit batch execution,
+- parallel fan-out / fan-in patterns,
+- staged or stream-oriented processing.
 
-## Networking Layer
-
-Proposed communication model:
-
-- **gRPC** for Master ↔ Worker communication
-- **WebSocket** for live dashboard updates
-- Optional custom protocol extensions for advanced scenarios
-
-Network reliability features:
-
-- health checks
-- reconnect logic
-- worker discovery (e.g., gossip-based membership)
+This model allows users to represent both simple and compound workloads while keeping scheduling and observability consistent.
 
 ---
 
-## Monitoring and Dashboard
+## Execution Lifecycle
 
-Neon should provide both machine and human observability:
+A typical Neon job follows a clear end-to-end path:
 
-- Live cluster load charts
-- Job list and execution state
-- Cluster health panel
-- Real-time log streaming
+1. A client submits a job definition.
+2. The control plane validates and enqueues the request.
+3. Scheduler logic selects one or more suitable workers.
+4. Workers execute the task in isolated runtime context.
+5. Progress, logs, and status updates are streamed to control-plane telemetry.
+6. On completion or failure, final state and outputs are recorded and exposed.
 
-Backend observability components:
-
-- Prometheus exporter
-- Structured logging
-- Distributed tracing
+This lifecycle is designed for traceability and operational clarity at every stage.
 
 ---
 
-## Fault Tolerance and Reliability
+## Reliability and Fault Tolerance
 
-Reliability mechanisms include:
+Neon emphasizes graceful behavior under real-world faults.
+Its reliability design includes:
 
-- heartbeat-driven worker liveness detection,
-- automatic rescheduling on worker failure,
+- heartbeat-based worker liveness detection,
+- automatic reassignment when workers become unavailable,
 - configurable retry policies,
 - timeout and cancellation enforcement,
-- queue persistence strategy (to prevent job loss),
-- optional replicated control plane (Raft-inspired design).
+- explicit failure visibility rather than silent drops.
 
-Desired outcomes:
-
-- no silent job drops,
-- bounded recovery times,
-- transparent failure reporting.
+The platform is intended to keep work progressing even when individual components fail, while preserving accurate state reporting.
 
 ---
 
 ## Security Model
 
-Security should be first-class in production scenarios:
+Security is treated as a core platform concern, not an add-on.
+The model includes:
 
-- API authentication (JWT)
-- Service-to-service trust (mTLS)
-- Role-based authorization for admin/operator/client paths
-- Request validation and schema checks
-- Auditable logs for control-plane actions
+- authenticated API access,
+- service-to-service trust controls,
+- role-aligned operational access boundaries,
+- strict request validation,
+- auditable control-plane activity trails.
 
----
-
-## Execution and Isolation
-
-To safely execute arbitrary scientific workloads:
-
-- containerized task sandboxing (Docker API or equivalent)
-- namespace-based isolation
-- CPU/memory limits and quotas
-- optional GPU assignment constraints
-
-This model reduces blast radius and improves reproducibility.
+This approach supports safer multi-user and multi-service operation in clustered environments.
 
 ---
 
-## Scalability Strategy
+## Observability
 
-Neon can scale through:
+Neon is designed for both machine and human observability.
+Expected operational visibility includes:
 
-- horizontal worker expansion,
-- adaptive scheduling under varying load,
-- dynamic worker provisioning (manual or policy-driven),
-- plugin system for compute module extension.
+- real-time job state and cluster health views,
+- structured logs for debugging and audits,
+- metrics export for alerting and SLO tracking,
+- trace-friendly execution flow across components.
 
----
-
-## Suggested Technology Stack
-
-- **Language:** Go
-- **RPC:** gRPC
-- **HTTP API:** REST
-- **Realtime:** WebSocket
-- **Metrics:** Prometheus
-- **Tracing:** OpenTelemetry-compatible stack
-- **Storage (optional):** PostgreSQL / Redis / object store depending on persistence model
-- **Isolation:** Docker + Linux namespaces/cgroups
+Observability is integral to troubleshooting, capacity planning, and reliability engineering.
 
 ---
 
-## Example Scientific Workloads
+## Scalability
 
-1. **Cellular Automata**
-   - Parameter sweep across initial states
-   - Parallel execution over worker pool
+Neon scales primarily by expanding worker capacity and improving scheduling efficiency.
+The platform is structured for:
 
-2. **Monte Carlo Engine**
-   - Millions of independent random trials
-   - Aggregation of confidence intervals
+- horizontal worker growth,
+- adaptive placement under changing load,
+- stable behavior under mixed workload profiles.
 
-3. **Differential Solver Batch**
-   - Input parameter scans
-   - Numerical solver output collection
-
-4. **Measurement Pipeline**
-   - Streaming ingestion
-   - Filter/transform/analyze/report stages
+This enables progression from small experimental clusters to larger distributed compute environments.
 
 ---
 
-## End-to-End Workflow
+## Technology Profile
 
-1. Client submits job definition via REST/gRPC.
-2. Master validates and enqueues the job.
-3. Scheduler selects one or more eligible workers.
-4. Workers execute workload in isolated runtime.
-5. Workers stream logs/progress; master updates state.
-6. On failure: retry/reschedule based on policy.
-7. On completion: results are aggregated and exposed to client/UI.
+Neon is implemented in **Go**, with emphasis on concurrency, networked services, and operational robustness.
+The platform design aligns with modern distributed-system practices, including RPC-based coordination, API-driven control, and telemetry-first operations.
 
 ---
 
-## Project Structure (Planned)
+## Current Repository Status
 
-As implementation grows, a structure like this is recommended:
+The repository currently contains project-level documentation and visual assets.
+Core runtime services are being prepared as the next implementation stage.
 
-```text
-Neon/
-├── cmd/
-│   ├── master/           # Control plane entrypoint
-│   ├── worker/           # Worker node entrypoint
-│   └── cli/              # Optional admin/client CLI
-├── internal/
-│   ├── scheduler/
-│   ├── queue/
-│   ├── registry/
-│   ├── heartbeat/
-│   ├── executor/
-│   ├── sandbox/
-│   └── auth/
-├── api/
-│   ├── proto/            # gRPC contracts
-│   └── openapi/          # REST contracts
-├── web/                  # Dashboard frontend
-├── deploy/               # Docker/K8s/deployment assets
-├── docs/                 # Technical docs
-└── tests/                # Integration and e2e tests
-```
-
----
-
-## Configuration (Planned)
-
-Typical configurable domains:
-
-- Cluster topology and node identity
-- Scheduler strategy and queue parameters
-- Retry/timeouts/dead-letter behavior
-- Resource limits (CPU/RAM/GPU)
-- Security settings (JWT secrets, cert paths, mTLS mode)
-- Metrics/tracing export endpoints
-
----
-
-## API Surfaces (Planned)
-
-- **REST API** for user-facing job operations and status queries
-- **gRPC API** for high-performance master/worker coordination
-- **WebSocket stream** for live telemetry, logs, and state transitions
-
-Expected API domains:
-
-- Job submission/cancellation
-- Job status and results retrieval
-- Worker registration and heartbeat endpoints
-- Cluster status and operational diagnostics
-
----
-
-## Quick Start (Current Repository State)
-
-This repository is currently at an early stage and mainly contains project assets.  
-Implementation modules, runtime services, and deployment scripts are expected to be added incrementally.
-
-Recommended next steps:
-
-1. Bootstrap `master` and `worker` service binaries in Go.
-2. Define gRPC contracts for registration, heartbeat, and execution.
-3. Implement minimal in-memory queue + round-robin scheduler.
-4. Add one reference scientific job (e.g., Monte Carlo π estimation).
-5. Expose metrics and basic WebSocket live status.
-
----
-
-## Development Roadmap
-
-### Phase 1 — Foundations
-
-- Core master service
-- Worker registration + heartbeats
-- Basic queue and scheduling
-- Single batch job support
-
-### Phase 2 — Reliability and Observability
-
-- Retry/timeout policies
-- Structured logs + metrics + tracing
-- Improved failure reporting
-
-### Phase 3 — Advanced Execution
-
-- Parallel and streaming jobs
-- Result aggregation pipelines
-- Resource-aware scheduling improvements
-
-### Phase 4 — Production Features
-
-- mTLS and stronger auth policies
-- Replicated control plane options
-- Dynamic scaling and plugin architecture
-
----
-
-## Testing and Quality Strategy
-
-Recommended testing layers:
-
-- Unit tests for scheduler, queue, and retry logic
-- Integration tests for master-worker interactions
-- Fault-injection tests (worker crash, network partition, timeout)
-- Performance profiling (pprof) under synthetic workload
-- End-to-end scenario tests with representative scientific jobs
-
----
-
-## CV / Career Value
-
-Neon demonstrates practical capability in:
-
-- computer networking,
-- Go concurrency (goroutines, channels, worker pools),
-- distributed systems design,
-- fault tolerance engineering,
-- backend architecture,
-- DevOps and observability,
-- performance tuning and profiling,
-- integration testing for real infrastructure.
-
-This is not a trivial demo app.  
-It is infrastructure-grade engineering with direct relevance to:
-
-- technical physics,
-- scientific data processing,
-- HPC-oriented systems,
-- backend platform engineering,
-- distributed compute and operations.
+This README reflects the intended professional architecture and system behavior of Neon as a distributed scientific compute platform.
 
 ---
 
 ## Contributing
 
-Contributions are welcome once the initial implementation baseline is in place.
+Contributions are welcome as implementation expands.
+Please keep contributions focused, technically justified, and consistent with the architecture and reliability goals described above.
 
-General expectations:
+When contributing:
 
-- keep changes focused and incremental,
-- include tests for behavior changes,
-- document public-facing interfaces,
-- preserve backward compatibility where applicable.
+- keep changes scoped and reviewable,
+- preserve clarity and maintainability,
+- document externally visible behavior,
+- include validation for behavior changes where applicable.
+
+---
+
+## License
+
+License details should be added once the project’s licensing model is finalized.
