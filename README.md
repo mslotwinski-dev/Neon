@@ -96,7 +96,7 @@ Neon jest projektowany z myślą o zadaniach takich jak:
 
 ## Jak śledzić postęp
 
-Najlepszym źródłem informacji o postępie prac są:
+Najlepszym źródłem informacji o postępach prac są:
 
 - historia commitów,
 - opisy pull requestów,
@@ -106,5 +106,5 @@ Najlepszym źródłem informacji o postępie prac są:
 
 ## Licencja
 
-Brak zdefiniowanej licencji w repozytorium na ten moment.
-W przypadku publikacji produkcyjnej zostanie dodana jawna licencja projektu.
+Aktualnie repozytorium nie zawiera pliku LICENSE.
+Do czasu publikacji jawnej licencji należy traktować projekt jako „wszystkie prawa zastrzeżone”.
